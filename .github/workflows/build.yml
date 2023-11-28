@@ -29,10 +29,22 @@ jobs:
           echo 'INHERIT += "rm_work"' >> conf/local.conf
           echo 'BB_SIGNATURE_HANDLER = "OEBasicHash"' >> conf/local.conf
           echo 'BB_HASHSERVE = ""' >> conf/local.conf
+      - name: Build base packages
+        run: |
+          source ./oe-init-build-env build
+          bitbake linux-lxatac systemd rauc
+      - name: Build rust tools
+        run: |
+          source ./oe-init-build-env build
+          bitbake rust-native cargo-native
       - name: Build tacd
         run: |
           source ./oe-init-build-env build
           bitbake tacd
+      - name: Build images
+        run: |
+          source ./oe-init-build-env build
+          bitbake lxatac-core-image-base emmc-image
       - name: Build lxatac-core-bundle-base
         run: |
           source ./oe-init-build-env build
