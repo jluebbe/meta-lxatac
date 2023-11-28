@@ -1,0 +1,44 @@
+name: meta-lxatac CI
+
+on:
+  push: {}
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: meta-lxatac Build
+    runs-on: ${{ vars.BUILD_RUNS_ON || (github.repository == 'jluebbe/meta-lxatac' && 'ptx-runner') || 'ubuntu-latest' }}
+    timeout-minutes: 720
+    steps:
+      - name: Setup SSH Key for Yocto Cache
+        run: |
+          echo "${{ secrets.YOCTO_CACHE_KEY }}" >> ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Install required packages
+        run: |
+          sudo apt-get install diffstat chrpath
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+      - name: Initialize build directory
+        run: |
+          source ./oe-init-build-env build
+          cp ~/.yocto/auto.conf conf/ || true
+          echo 'INHERIT += "rm_work"' >> conf/local.conf
+          echo 'BB_SIGNATURE_HANDLER = "OEBasicHash"' >> conf/local.conf
+          echo 'BB_HASHSERVE = ""' >> conf/local.conf
+      - name: Build tacd
+        run: |
+          source ./oe-init-build-env build
+          bitbake tacd
+      - name: Build lxatac-core-bundle-base
+        run: |
+          source ./oe-init-build-env build
+          bitbake lxatac-core-bundle-base
+      - name: Cache Data
+        if: ${{ !cancelled() }}
+        run: |
+          test ! -s ~/.ssh/id_ed25519 || rsync -rvx --ignore-existing build/downloads yocto-cache: || true
+          test ! -s ~/.ssh/id_ed25519 || rsync -rvx --ignore-existing build/sstate-cache yocto-cache: || true
